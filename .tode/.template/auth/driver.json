@@ -1,0 +1,39 @@
+{
+  "sourceDir": ".tode/.template/auth",
+  "destination": "",
+  "files": [
+    {
+      "name": "index.ts",
+      "source": ".tode/.template/auth/controllers/auth/index.ts",
+      "destination":"src/controllers/auth"
+    },
+    {
+      "name": "auth.ts",
+      "source": ".tode/.template/auth/middlewares/auth.ts",
+      "destination":"src/middlewares"
+    },
+      {
+      "name": "index.ts",
+      "source": ".tode/.template/auth/models/user/index.ts",
+      "destination":"src/models/user"
+    },
+     {
+      "name": "index.ts",
+      "source": ".tode/.template/auth/services/auth/index.ts",
+      "destination":"src/services/auth"
+    },
+     {
+      "name": "index.ts",
+      "source": ".tode/.template/auth/services/user/index.ts",
+      "destination":"src/services/user"
+    }
+  ],
+	"dependencies":[
+		"jsonwebtoken",
+		"bcryptjs"
+	],
+	"devDependencies":[
+		"@types/bcryptjs",
+		"@types/jsonwebtoken"
+	]
+}

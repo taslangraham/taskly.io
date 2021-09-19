@@ -1,0 +1,9 @@
+{
+  "sourceDir": ".tode/.template/service",
+  "destination": "src/services",
+  "files": [
+    {
+      "name": "index.ts"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "sourceDir": ".tode/.template/model",
+  "destination": "src/models",
+  "files": [
+    {
+      "name": "index.ts"
+    }
+  ]
+}
