@@ -1,4 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
+import { JsonWebTokenError } from 'jsonwebtoken';
+import { EnpoindReponse } from '../config/constants';
 import { authService } from '../services/auth';
 
 /**
@@ -8,11 +10,18 @@ import { authService } from '../services/auth';
  * @param next
  */
 export const isLoggedIn = (req: Request, res: Response, next: NextFunction) => {
-  const authToken = req.headers.authorization && req.headers.authorization;
+  const authToken = req.headers['auth-token'] && req.headers['auth-token'] as string;
+  let errorResponse: EnpoindReponse;
+
   try {
 
     if (!authToken) {
-      return res.status(403).send({ auth: false, message: 'Missing required Token' });
+      errorResponse = {
+        success: false,
+        errorMessage: 'Missing required Token',
+        errorCode: 'A_01',
+      };
+      return res.status(401).send(errorResponse);
     }
 
     const decoded = authService.decodeToken(authToken);
@@ -24,8 +33,14 @@ export const isLoggedIn = (req: Request, res: Response, next: NextFunction) => {
     };
 
     return next();
+
   } catch (error) {
     console.log(`[ Auth middleware Error ]: ${error}`);
-    return res.status(403).send({ auth: false, message: JSON.stringify(error) });
+    errorResponse = {
+      success: false,
+      errorCode: 'A_02',
+      errorMessage: (error as JsonWebTokenError).message,
+    };
+    return res.status(401).send(errorResponse);
   }
 };

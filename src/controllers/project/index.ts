@@ -1,18 +1,26 @@
 import { Request, Response, Router } from "express";
-import { Base10, EnpoindReponse, HttpResponseCode } from '../../config/constants';
+import { Base10, EnpoindReponse, ServiceReponse } from '../../config/constants';
 import { findMissingFields } from "../../helpers/requiredFields";
 import { isLoggedIn } from "../../middlewares/auth";
-import { ProjectStatusCode as ProjectStatusID } from "../../modules/constants";
+import {
+  AuthErrorCode,
+  GeneralErrorCode,
+  HttpResponseCode,
+  ProjectErrorCode,
+  ProjectStatusCode as ProjectStatusID,
+} from "../../modules/constants";
 import { ProjectInfo } from '../../modules/entity/project';
 import { projectService } from '../../services/project';
 import { userService } from "../../services/user";
+// tslint:disable-next-line: no-var-requires
+const stage = require('./stage')();
 module.exports = () => {
   const router = Router();
   /**
    * Create a new Item
    */
   router.post("/", isLoggedIn, async (req, res) => {
-    let result: EnpoindReponse<ProjectInfo> = { success: false };
+    let result: ServiceReponse<ProjectInfo> = { success: false };
     let status = HttpResponseCode.OK;
     const body = req.body;
     const userId = req.body._user.id;
@@ -20,7 +28,11 @@ module.exports = () => {
     try {
       // Check request body type
       if (typeof (body) !== 'string' && typeof (body) !== 'object') {
-        result = { success: false, errorMessage: 'Invalid request body' };
+        result = {
+          success: false,
+          errorMessage: 'Invalid request body',
+          errorCode: ProjectErrorCode.INVALID_REQUEST_BODY,
+        };
         status = HttpResponseCode.BAD_REQUEST;
       } else {
         const bodyJson = typeof (body) === 'string' ? JSON.parse(body) : body;
@@ -28,13 +40,21 @@ module.exports = () => {
         // Check if user exists
         const isUserExist = await userService.findById(userId);
         if (!isUserExist.success) {
-          result = { success: false, errorMessage: `Failed to find user` };
+          result = {
+            success: false,
+            errorMessage: `Failed to find user`,
+            errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+          };
           status = HttpResponseCode.SERVER_ERROR;
 
         } else if (isUserExist.success && isUserExist.data !== undefined) {
           const missingFields = findMissingFields(bodyJson, ['title', 'description']);
           if (missingFields.length > 0) {
-            result = { success: false, errorMessage: `Missing required fields: [ ${missingFields.toString()} ]` };
+            result = {
+              success: false,
+              errorCode: ProjectErrorCode.MISSING_REQUIRED_FIELDS,
+              errorMessage: `Missing required fields: [ ${missingFields.toString()} ]`,
+            };
             status = HttpResponseCode.BAD_REQUEST;
           } else {
             // create project
@@ -45,7 +65,11 @@ module.exports = () => {
             const { success, data } = await projectService.createProject(creationInfo);
 
             if (!success) {
-              result = { success: false, errorMessage: `Failed to create Project` };
+              result = {
+                success: false,
+                errorMessage: `Failed to create Project`,
+                errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+              };
               status = HttpResponseCode.SERVER_ERROR;
             } else {
               result = { success: true, data };
@@ -53,12 +77,20 @@ module.exports = () => {
             }
           }
         } else if (isUserExist.success && isUserExist.data === undefined) {
-          result = { success: false, errorMessage: `User not found` };
+          result = {
+            success: false,
+            errorMessage: `User not found`,
+            errorCode: AuthErrorCode.USER_NOT_FOUND,
+          };
           status = HttpResponseCode.NOT_FOUND;
         }
       }
     } catch (error) {
-      result = { success: false, errorMessage: `Internal Server error` };
+      result = {
+        success: false,
+        errorMessage: `Internal Server error`,
+        errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+      };
       status = HttpResponseCode.SERVER_ERROR;
     }
     return res.status(status).send(result);
@@ -68,9 +100,8 @@ module.exports = () => {
    * Get all Items
    */
   router.get("/", isLoggedIn, async (req: Request, res: Response) => {
-    let result: EnpoindReponse<ProjectInfo[]> = { success: false };
+    let result: ServiceReponse<ProjectInfo[]> = { success: false };
     let status = HttpResponseCode.OK;
-
     try {
       const userId = req.body._user.id;
       const { success, data } = await projectService.getAllProjectsByUserId(userId);
@@ -95,15 +126,16 @@ module.exports = () => {
    * Get an Item by Id
    */
   router.get("/:id", isLoggedIn, async (req: Request, res: Response) => {
-    let result: EnpoindReponse<ProjectInfo> = { success: false };
+    let result: ServiceReponse<ProjectInfo> = { success: false };
     let status = HttpResponseCode.OK;
-    const projectId = Number.parseInt(req.params.id, Base10);
-    const userId = Number.parseInt(req.body._user.id, Base10);
+
     try {
-      const { success, data } = await projectService.getById(projectId, userId);
+      const projectId = Number.parseInt(req.params.id, Base10);
+      const userId = Number.parseInt(req.body._user.id, Base10);
+      const { success, data } = await projectService.findByProjectByIdAndUserId(projectId, userId);
 
       if (!success) {
-        result = { success: false, errorMessage: `Something went wrong` };
+        result = { success: false, errorMessage: `Internal Server error` };
         status = HttpResponseCode.SERVER_ERROR;
       }
 
@@ -117,6 +149,7 @@ module.exports = () => {
         status = HttpResponseCode.OK;
       }
     } catch (error) {
+
       result = { success: false, errorMessage: `Internal Server error` };
       status = HttpResponseCode.SERVER_ERROR;
     }
@@ -127,7 +160,7 @@ module.exports = () => {
    * Update an Item
    */
   router.patch("/:id", isLoggedIn, async (req: Request, res: Response) => {
-    let result: EnpoindReponse<boolean> = { success: false };
+    let result: ServiceReponse<boolean> = { success: false };
     let status = HttpResponseCode.OK;
     const projectId = Number.parseInt(req.params.id, Base10);
     const userId = Number.parseInt(req.body._user.id, Base10);
@@ -165,7 +198,7 @@ module.exports = () => {
   });
 
   router.delete("/:id", isLoggedIn, async (req: Request, res: Response) => {
-    let result: EnpoindReponse<boolean> = { success: false };
+    let result: ServiceReponse<boolean> = { success: false };
     let status = HttpResponseCode.OK;
     const projectId = Number.parseInt(req.params.id, Base10);
     const userId = Number.parseInt(req.body._user.id, Base10);
@@ -191,8 +224,10 @@ module.exports = () => {
       status = HttpResponseCode.SERVER_ERROR;
     }
 
-    return res.status(status).send(result)
+    return res.status(status).send(result);
   });
+
+  router.use('/:projectId/stage', isLoggedIn, stage);
 
   return router;
 };

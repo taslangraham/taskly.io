@@ -1,6 +1,9 @@
 import { stringHash } from "../../../.tode/lib/index";
 import { ServiceReponse } from "../../config/constants";
+import { findMissingFields, getFieldsWithMissingValue } from "../../helpers/requiredFields";
 import { User } from '../../models/user';
+import { AuthErrorCode, GeneralErrorCode } from "../../modules/constants";
+import { UserInfo } from "../../modules/entity/auth";
 
 export interface UserCreationInfo {
   email: string;
@@ -9,7 +12,7 @@ export interface UserCreationInfo {
   password: string;
 }
 
-class UserService {
+export default class UserService {
 
   constructor() {
     //
@@ -31,8 +34,53 @@ class UserService {
     return result;
   }
 
+  public async createUser2(registrationInfo: UserCreationInfo) {
+    let result: ServiceReponse<UserInfo> = { success: false };
+    try {
+      // Check if  there's any missing fields
+      const missingFields = getFieldsWithMissingValue(registrationInfo, ['firstName', 'lastName', 'email', 'password']);
+      const hasMissingField = missingFields.length > 0;
+
+      if (hasMissingField) {
+        result = {
+          errorCode: AuthErrorCode.MISSING_REQUIRED_FILEDS,
+          success: false,
+          errorMessage: `Missing required fields [ ${missingFields.toString()} ]`,
+        };
+      } else {
+        const userInfo = registrationInfo;
+        const findExistingUser = await this.findUserByEmail(userInfo.email);
+        const isUserAlreadyExist = findExistingUser.data !== undefined;
+        const isEmailAvailable = findExistingUser.success && findExistingUser.data === undefined;
+        const canCreateUser = findExistingUser.success && !isUserAlreadyExist && isEmailAvailable;
+        if (!findExistingUser.success) {
+          result = {
+            errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+            success: false,
+            errorMessage: `Internal server error`,
+          };
+        } else if (isUserAlreadyExist) {
+          result = {
+            errorCode: AuthErrorCode.USER_ALREADY_EXISTS,
+            success: false,
+            errorMessage: `An account already exists for the email "${userInfo.email}"`,
+          };
+        } else if (canCreateUser) { result = await this.createUser(userInfo); }
+      }
+    } catch (error) {
+      console.error(error);
+      result = {
+        success: false,
+        errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+        errorMessage: "Internal server error",
+      };
+    }
+
+    return result;
+  }
+
   public async createUser(userInfo: UserCreationInfo) {
-    let result: ServiceReponse<User>;
+    let result: ServiceReponse<UserInfo>;
     try {
       const user = await User.query().insert({
         email: userInfo.email,
@@ -40,15 +88,19 @@ class UserService {
         lastName: userInfo.lastName,
         password: await stringHash(userInfo.password),
       });
-
+      const createdUser = user as UserInfo;
+      delete createdUser.password;
       result = {
-        data: user,
+        data: createdUser,
         success: true,
       };
 
     } catch (error) {
-      console.log(error);
-      throw new Error('Failed to create User');
+      result = {
+        success: false,
+        errorCode: GeneralErrorCode.INTERNAL_SERVER_ERROR,
+        errorMessage: "Internal server error",
+      };
     }
 
     return result;

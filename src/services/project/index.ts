@@ -1,21 +1,14 @@
+import { raw } from "objection";
 import { ServiceReponse } from "../../config/constants";
 import { Project } from "../../models/project";
+import { Y } from "../../models/y";
 import { UpdateResponse } from "../../modules/constants";
 import { ProjectInfo } from "../../modules/entity/project";
 
 class ProjectService {
-  private _foo = "foo";
 
   constructor() {
     //
-  }
-
-  get foo() {
-    return this._foo;
-  }
-
-  set foo(val: string) {
-    this._foo = val;
   }
 
   public async createProject(info: ProjectInfo) {
@@ -28,7 +21,7 @@ class ProjectService {
           description: info.description,
           created_by: info.user_id,
           status_id: info.status_id,
-        });
+        }).returning('*');
 
       result = { success: true, data: project }
     } catch (error) {
@@ -60,14 +53,18 @@ class ProjectService {
    * @param userId User Id
    * @returns
    */
-  public async getById(id: number, userId: number) {
+  public async findByProjectByIdAndUserId(id: number, userId: number) {
     let result: ServiceReponse<Project>;
     try {
       const project = await Project.query()
         .findOne({ id, created_by: userId })
-        .andWhere("deleted_at", null);
+        .andWhere("deleted_at", null)
+        .withGraphFetched('stages.tasks', { aliases: { stages: 'd' } })
+      // .orderBy(raw("order by d.id"));
+
       result = { success: true, data: project };
     } catch (error) {
+      console.log(error);
       result = { success: false };
     }
 

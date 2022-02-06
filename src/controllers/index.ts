@@ -14,12 +14,16 @@ const routes = (app: Application) => {
       // Register route
       app.use(`/${directory.name}`, routeDef);
 
-      // Create an object with details about the route
-      const routeInfo = routeDef.stack.map((s) => ({
-        name: directory.name,
-        path: '/' + directory.name + s.route.path,
-        method: Object.keys(s.route.methods)[0],
-      }));
+
+      // Create an object with details about the 
+      // needs updating to handle sub routes
+      const routeInfo = routeDef.stack
+        .filter((f) => f?.route !== undefined)
+        .map((s) => ({
+          name: directory.name,
+          path: '/' + directory.name + s?.route?.path,
+          method: Object.keys(s?.route?.methods)[0],
+        }));
       // Stores detail about the route
       // this is used tpo provide a print out of all routes
       // when you navigate to base route, /
